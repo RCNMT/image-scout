@@ -116,6 +116,21 @@ let isDragging = false;
 let isResizing = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
+// Track whether Ctrl is currently held
+let ctrlPressed = false;
+
+// Keep track of Ctrl key so popup only appears when held
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && !ctrlPressed) ctrlPressed = true;
+}, true);
+
+document.addEventListener('keyup', (e) => {
+    if (!e.ctrlKey && ctrlPressed) {
+        ctrlPressed = false;
+        // hide popup when Ctrl released
+        hidePopup();
+    }
+}, true);
 
 // Load settings from storage
 function loadSettings() {
@@ -173,27 +188,42 @@ function handleMouseDown(e) {
 
 function handleMouseMove(e) {
     if (isDragging && settings.popupPosition === 'fixed') {
-        popup.style.left = (e.clientX - dragOffsetX) + 'px';
-        popup.style.top = (e.clientY - dragOffsetY) + 'px';
+        const rect = popup.getBoundingClientRect();
+        const desiredLeft = e.clientX - dragOffsetX;
+        const desiredTop = e.clientY - dragOffsetY;
+        const clamped = clampToViewport(desiredLeft, desiredTop, rect.width, rect.height);
+        popup.style.left = clamped.left + 'px';
+        popup.style.top = clamped.top + 'px';
     }
 
     if (isResizing && settings.popupPosition === 'fixed') {
         const rect = popup.getBoundingClientRect();
-        const newWidth = e.clientX - rect.left;
-        const newHeight = e.clientY - rect.top;
+        let newWidth = e.clientX - rect.left;
+        let newHeight = e.clientY - rect.top;
 
-        if (newWidth > 250) {
-            popup.style.width = newWidth + 'px';
-        }
-        if (newHeight > 150) {
-            popup.style.height = newHeight + 'px';
-        }
+        // enforce min and max (stay inside viewport)
+        const maxWidth = Math.max(window.innerWidth - rect.left - 8, 250);
+        const maxHeight = Math.max(window.innerHeight - rect.top - 8, 150);
+        newWidth = Math.min(Math.max(newWidth, 250), maxWidth);
+        newHeight = Math.min(Math.max(newHeight, 150), maxHeight);
+
+        popup.style.width = newWidth + 'px';
+        popup.style.height = newHeight + 'px';
     }
 }
 
 function handleMouseUp() {
     isDragging = false;
     isResizing = false;
+}
+
+// Clamp coordinates so popup remains inside the viewport
+function clampToViewport(left, top, width, height, margin = 8) {
+    const maxLeft = Math.max(window.innerWidth - width - margin, margin);
+    const maxTop = Math.max(window.innerHeight - height - margin, margin);
+    left = Math.min(Math.max(left, margin), maxLeft);
+    top = Math.min(Math.max(top, margin), maxTop);
+    return { left, top };
 }
 
 function createCategory(title, items) {
@@ -258,12 +288,12 @@ async function showPopup(img, x, y) {
     ];
 
     // Position
-    let rect = img.getBoundingClientRect();
+    let imgRect = img.getBoundingClientRect();
     let positionItems = [
-        { label: 'Top', value: Math.round(rect.top) + 'px' },
-        { label: 'Left', value: Math.round(rect.left) + 'px' },
-        { label: 'Bottom', value: Math.round(rect.bottom) + 'px' },
-        { label: 'Right', value: Math.round(rect.right) + 'px' }
+        { label: 'Top', value: Math.round(imgRect.top) + 'px' },
+        { label: 'Left', value: Math.round(imgRect.left) + 'px' },
+        { label: 'Bottom', value: Math.round(imgRect.bottom) + 'px' },
+        { label: 'Right', value: Math.round(imgRect.right) + 'px' }
     ];
 
     // Attributes
@@ -323,19 +353,51 @@ async function showPopup(img, x, y) {
 
     popup.innerHTML = content;
 
+    // show first so we can measure size for clamping
+    popup.style.display = 'block';
+
+    const rect = popup.getBoundingClientRect();
+    const popupW = rect.width || popup.offsetWidth || 200;
+    const popupH = rect.height || popup.offsetHeight || 100;
+
     if (settings.popupPosition === 'follow') {
-        popup.style.left = (x + 10) + 'px';
-        popup.style.top = (y + 10) + 'px';
+        // Prefer placing popup to the right and below the cursor.
+        // If that overflows, flip vertically (above) or horizontally (to the left).
+        const margin = 8;
+        let desiredLeft = x + 10;
+        let desiredTop = y + 10;
+
+        // Horizontal flip if would overflow right
+        if (desiredLeft + popupW + margin > window.innerWidth) {
+            desiredLeft = x - popupW - 10;
+        }
+
+        // Vertical flip if would overflow bottom
+        if (desiredTop + popupH + margin > window.innerHeight) {
+            desiredTop = y - popupH - 10;
+        }
+
+        const clamped = clampToViewport(desiredLeft, desiredTop, popupW, popupH, margin);
+        popup.style.left = clamped.left + 'px';
+        popup.style.top = clamped.top + 'px';
         popup.style.width = 'auto';
         popup.style.height = 'auto';
     } else {
         if (!popup.style.left) {
-            popup.style.left = (x + 10) + 'px';
-            popup.style.top = (y + 10) + 'px';
+            const desiredLeft = x + 10;
+            const desiredTop = y + 10;
+            const clamped = clampToViewport(desiredLeft, desiredTop, popupW, popupH);
+            popup.style.left = clamped.left + 'px';
+            popup.style.top = clamped.top + 'px';
+        } else {
+            // ensure existing fixed position still inside viewport
+            const left = parseFloat(popup.style.left) || 0;
+            const top = parseFloat(popup.style.top) || 0;
+            const clamped = clampToViewport(left, top, popupW, popupH);
+            popup.style.left = clamped.left + 'px';
+            popup.style.top = clamped.top + 'px';
         }
     }
-
-    popup.style.display = 'block';
 
     // Add close button listener after content is inserted
     const closeBtn = popup.querySelector('#popup-close-btn');
@@ -360,44 +422,66 @@ document.addEventListener('click', (event) => {
 }, true);
 
 document.addEventListener('mouseover', (event) => {
+    // only when Ctrl held
+    if (!ctrlPressed && !event.ctrlKey) return;
+
     // Check if the target itself is an img or if it's inside an img tag
     let img = null;
-    
-    if (event.target.tagName === 'IMG') {
+    if (event.target && event.target.tagName === 'IMG') {
         img = event.target;
-    } else {
+    } else if (event.target && event.target.closest) {
         img = event.target.closest('img');
     }
-    
+
     if (img && !img.classList.contains('image-inspector-popup')) {
         showPopup(img, event.clientX, event.clientY);
     }
 }, true);
 
 document.addEventListener('mousemove', (event) => {
-    let img = null;
+    // only when Ctrl held
+    if (!ctrlPressed && !event.ctrlKey) return;
 
-    if (event.target.tagName === 'IMG') {
+    let img = null;
+    if (event.target && event.target.tagName === 'IMG') {
         img = event.target;
-    } else {
+    } else if (event.target && event.target.closest) {
         img = event.target.closest('img');
     }
-    
+
     if (img && popup && popup.style.display !== 'none' && settings.popupPosition === 'follow') {
-        popup.style.left = (event.clientX + 10) + 'px';
-        popup.style.top = (event.clientY + 10) + 'px';
+        const rect = popup.getBoundingClientRect();
+        const popupW = rect.width || popup.offsetWidth || 200;
+        const popupH = rect.height || popup.offsetHeight || 100;
+        const margin = 8;
+
+        let desiredLeft = event.clientX + 10;
+        let desiredTop = event.clientY + 10;
+
+        if (desiredLeft + popupW + margin > window.innerWidth) {
+            desiredLeft = event.clientX - popupW - 10;
+        }
+        if (desiredTop + popupH + margin > window.innerHeight) {
+            desiredTop = event.clientY - popupH - 10;
+        }
+
+        const clamped = clampToViewport(desiredLeft, desiredTop, popupW, popupH, margin);
+        popup.style.left = clamped.left + 'px';
+        popup.style.top = clamped.top + 'px';
     }
 }, true);
 
 document.addEventListener('mouseout', (event) => {
+    // only when Ctrl held
+    if (!ctrlPressed && !event.ctrlKey) return;
+
     let img = null;
-    
-    if (event.target.tagName === 'IMG') {
+    if (event.target && event.target.tagName === 'IMG') {
         img = event.target;
-    } else {
+    } else if (event.target && event.target.closest) {
         img = event.target.closest('img');
     }
-    
+
     if (img && settings.popupPosition === 'follow') {
         hidePopup();
     }
