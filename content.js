@@ -6,53 +6,58 @@ style.textContent = `
     position: fixed;
     background: rgba(0, 0, 0, 0.95);
     color: white;
-    padding: 12px;
+    padding: 8px;
     border-radius: 6px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 12px;
     z-index: 999999;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     pointer-events: auto;
-    line-height: 1.5;
+    line-height: 1.25;
+    width: 140px;
   }
   
   .image-inspector-popup.follow-mode {
-    max-width: 250px;
     pointer-events: none;
   }
   
   .image-inspector-popup.fixed-mode {
     min-height: 200px;
-    min-width: 300px;
+    min-width: 200px;
     overflow-y: auto;
     resize: both;
     border: 1px solid #555;
-  }
-  
-  .popup-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #444;
+    pointer-events: auto;
   }
   
   .popup-title {
     color: ${foreground};
-    font-weight: bold;
-    font-size: 16px;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+    display: block;
+  }
+  
+  .image-inspector-popup.fixed-mode .popup-title {
+    display: block;
+  }
+  
+  .image-inspector-popup.follow-mode .popup-close {
+    display: none;
   }
   
   .popup-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
     background: none;
     border: none;
     color: #aaa;
     cursor: pointer;
     font-size: 14px;
     padding: 0;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,50 +68,27 @@ style.textContent = `
     color: #fff;
   }
   
-  .image-inspector-popup.follow-mode .popup-close {
-    display: none;
-  }
-  
-  .popup-category {
-    font-size: 14px;
-    margin: 10px 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #444;
-  }
-  
-  .popup-category:last-child {
-    border-bottom: none;
-  }
-  
-  .popup-category-header {
-    color: ${foreground};
-    font-weight: bold;
-    margin-bottom: 8px;
-    font-size: 13px;
-  }
-  
-  .popup-item {
-    margin: 4px 0;
+  .popup-info-item {
+    font-size: 11px;
+    font-weight: 200;
+    color: #ddd;
+    margin-bottom: 3px;
     word-break: break-all;
   }
   
-  .popup-label {
-    color: #aaa;
-    font-weight: bold;
-  }
-  
-  .popup-value {
+  .popup-info-item strong {
     color: #fff;
-    margin-left: 6px;
   }
 `;
+
+document.head.appendChild(style);
 
 document.head.appendChild(style);
 
 // Default settings
 const defaultSettings = {
     popupPosition: 'follow',
-    showInfo: ['basic', 'dimensions', 'metadata', 'position', 'file', 'attributes']
+    showInfo: ['title', 'url', 'alt', 'imageTitle', 'type', 'originalSize', 'renderSize', 'aspectRatio']
 };
 
 // Store current settings
@@ -128,14 +110,19 @@ document.addEventListener('keyup', (e) => {
     if (!e.ctrlKey && ctrlPressed) {
         ctrlPressed = false;
         // hide popup when Ctrl released
-        hidePopup();
+        if (settings.popupPosition === 'follow')
+            hidePopup();
     }
 }, true);
 
 // Load settings from storage
 function loadSettings() {
     chrome.storage.sync.get(defaultSettings, (storedSettings) => {
+        let mode = settings.popupPosition;
         settings = storedSettings;
+        if (mode !== settings.popupPosition) {
+            switchMode();
+        }
     });
 }
 
@@ -165,6 +152,19 @@ function createPopup() {
         document.addEventListener('mouseup', handleMouseUp);
     }
     return popup;
+}
+
+function switchMode() {
+    if (popup) {
+        hidePopup();
+        if (settings.popupPosition === 'follow') {
+            popup.classList.remove('fixed-mode');
+            popup.classList.add('follow-mode');
+        } else {
+            popup.classList.remove('follow-mode');
+            popup.classList.add('fixed-mode');
+        }
+    }
 }
 
 function handleMouseDown(e) {
@@ -226,34 +226,6 @@ function clampToViewport(left, top, width, height, margin = 8) {
     return { left, top };
 }
 
-function createCategory(title, items) {
-    let html = `
-    <div class="popup-category">
-        <div class="popup-category-header">${title}</div>
-    `;
-
-    items.forEach(item => {
-        let tagStart = '';
-        let tagEnd = ''
-        if (item.tag) {
-            tagStart = `<${item.tag} ${item.attr}>`
-            tagEnd = `</${item.tag}>`
-        }
-        html += `
-            <div class="popup-item">
-                <span class="popup-label">${item.label}:</span>
-                <span class="popup-value">${tagStart}${item.value}${tagEnd}</span>
-            </div>
-        `;
-    });
-
-    html += `
-    </div>
-    `;
-
-    return html;
-}
-
 function closePopup() {
     hidePopup();
 }
@@ -261,94 +233,57 @@ function closePopup() {
 async function showPopup(img, x, y) {
     const popup = createPopup();
 
-    // Basic Info
-    let basicItems = [
-        { label: 'URL', value: img.src.substring(0, 70) + (img.src.length > 70 ? '...' : ''), tag: `a`, attr: `href="${img.src}" target="_blank"` },
-        { label: 'Title', value: img.title || '(none)' },
-        { label: 'Alt Text', value: img.alt || '(none)' },
-    ];
-
-    // Dimensions
-    let dimensionItems = [
-        { label: 'Original Width', value: img.naturalWidth + 'px' },
-        { label: 'Original Height', value: img.naturalHeight + 'px' },
-        { label: 'Render Width', value: img.width ? img.width + 'px' : 'auto' },
-        { label: 'Render Height', value: img.height ? img.height + 'px' : 'auto' },
-        { label: 'Offset Width', value: img.offsetWidth + 'px' },
-        { label: 'Offset Height', value: img.offsetHeight + 'px' },
-        { label: 'Aspect Ratio', value: (img.naturalWidth / img.naturalHeight).toFixed(2) }
-    ];
-
-    // Metadata
-    let metadataItems = [
-        { label: 'Complete', value: img.complete ? 'Yes' : 'No' },
-        { label: 'Loading', value: img.loading || 'eager' },
-        { label: 'Decoding', value: img.decoding || 'auto' },
-        { label: 'CORS', value: img.crossOrigin || 'not set' }
-    ];
-
-    // Position
-    let imgRect = img.getBoundingClientRect();
-    let positionItems = [
-        { label: 'Top', value: Math.round(imgRect.top) + 'px' },
-        { label: 'Left', value: Math.round(imgRect.left) + 'px' },
-        { label: 'Bottom', value: Math.round(imgRect.bottom) + 'px' },
-        { label: 'Right', value: Math.round(imgRect.right) + 'px' }
-    ];
-
-    // Attributes
-    let attributeItems = [
-        { label: 'ID', value: img.id || '(none)' },
-        { label: 'Class', value: img.className || '(none)' },
-        { label: 'SrcSet', value: img.srcset ? img.srcset.substring(0, 50) + '...' : '(none)' }
-    ];
-
-    // Build popup content based on mode
+    // Build popup content based on settings
     let content = '';
 
-    if (settings.popupPosition === 'follow') {
-        // Minimal mode: only show basic and dimensions
-        content += `
-            <div class="popup-header">
-                <span class="popup-title">Image Info</span>
-            </div>
-        `;
-        basicItems = [
-            { label: 'URL', value: img.src.substring(0, 70) + (img.src.length > 70 ? '...' : '') },
-            { label: 'Title', value: img.title || '(none)' },
-            { label: 'Alt Text', value: img.alt || '(none)' },
-        ];
-        content += createCategory('Basic', basicItems);
-        dimensionItems = [
-            { label: 'Original Size', value: `${img.naturalWidth} x ${img.naturalHeight} px` },
-            { label: 'Render Size', value: `${img.width} x ${img.height} px` },
-            { label: 'Aspect Ratio', value: (img.naturalWidth / img.naturalHeight).toFixed(2) }
-        ];
-        content += createCategory('Dimensions', dimensionItems);
-    } else {
-        // Full mode: show all info with close button
-        content += `
-            <div class="popup-header">
-                <span class="popup-title">Image Inspector</span>
-                <button class="popup-close" id="popup-close-btn">✕</button>
-            </div>
-        `;
+    // Show title if enabled
+    if (settings.showInfo.includes('title')) {
+        content += `<div class="popup-title">Image Scout</div>`;
+    }
 
-        if (settings.showInfo.includes('basic')) {
-            content += createCategory('Basic Info', basicItems);
-        }
-        if (settings.showInfo.includes('dimensions')) {
-            content += createCategory('Dimensions', dimensionItems);
-        }
-        if (settings.showInfo.includes('metadata')) {
-            content += createCategory('Metadata', metadataItems);
-        }
-        if (settings.showInfo.includes('position')) {
-            content += createCategory('Position', positionItems);
-        }
-        if (settings.showInfo.includes('attributes')) {
-            content += createCategory('Attributes', attributeItems);
-        }
+    // Show URL
+    if (settings.showInfo.includes('url')) {
+        const urlDisplay = img.src.length > 40 ? img.src.substring(0, 40) + '...' : img.src;
+        content += `<div class="popup-info-item"><strong>URL:</strong> ${urlDisplay}</div>`;
+    }
+
+    // Show Alt
+    if (settings.showInfo.includes('alt')) {
+        const altText = img.alt || '(none)';
+        content += `<div class="popup-info-item"><strong>Alt:</strong> ${altText}</div>`;
+    }
+
+    // Show Image Title
+    if (settings.showInfo.includes('imageTitle')) {
+        const titleText = img.title || '(none)';
+        content += `<div class="popup-info-item"><strong>Title:</strong> ${titleText}</div>`;
+    }
+
+    // Show Type
+    if (settings.showInfo.includes('type')) {
+        const type = img.src.split('.').pop().split('?')[0].toUpperCase();
+        content += `<div class="popup-info-item"><strong>Type:</strong> ${type}</div>`;
+    }
+
+    // Show Original Size
+    if (settings.showInfo.includes('originalSize')) {
+        content += `<div class="popup-info-item"><strong>Original:</strong> ${img.naturalWidth}×${img.naturalHeight}</div>`;
+    }
+
+    // Show Render Size
+    if (settings.showInfo.includes('renderSize')) {
+        content += `<div class="popup-info-item"><strong>Render:</strong> ${img.width}×${img.height}</div>`;
+    }
+
+    // Show Aspect Ratio
+    if (settings.showInfo.includes('aspectRatio')) {
+        const aspectRatio = (img.naturalWidth / img.naturalHeight).toFixed(2);
+        content += `<div class="popup-info-item"><strong>Aspect Ratio:</strong> ${aspectRatio}</div>`;
+    }
+
+    // Add close button for fixed mode
+    if (settings.popupPosition === 'fixed') {
+        content += `<button class="popup-close" id="popup-close-btn">✕</button>`;
     }
 
     popup.innerHTML = content;
@@ -433,7 +368,7 @@ document.addEventListener('mouseover', (event) => {
         img = event.target.closest('img');
     }
 
-    if (img && !img.classList.contains('image-inspector-popup')) {
+    if (popup && popup.style.display !== 'none' && img && !img.classList.contains('image-inspector-popup')) {
         showPopup(img, event.clientX, event.clientY);
     }
 }, true);
@@ -447,6 +382,10 @@ document.addEventListener('mousemove', (event) => {
         img = event.target;
     } else if (event.target && event.target.closest) {
         img = event.target.closest('img');
+    }
+
+    if (img && !img.classList.contains('image-inspector-popup')) {
+        showPopup(img, event.clientX, event.clientY);
     }
 
     if (img && popup && popup.style.display !== 'none' && settings.popupPosition === 'follow') {

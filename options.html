@@ -37,8 +37,8 @@
     }
 
     .section {
-      margin-bottom: 30px;
-      padding-bottom: 20px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
       border-bottom: 1px solid #eee;
     }
 
@@ -63,8 +63,8 @@
       border-radius: 2px;
     }
 
-    .option-group {
-      margin-bottom: 15px;
+    .option-group:not(:last-child) {
+      margin-bottom: 8px;
     }
 
     label {
@@ -104,7 +104,7 @@
 
     .info-list {
       background: #f9f9f9;
-      padding: 15px;
+      padding: 16px;
       border-radius: 4px;
       margin-top: 15px;
     }
@@ -199,12 +199,146 @@
         font-weight: 200;
       }
     }
+
+    .mockup-section {
+      padding: 20px;
+      background: #f0f4f8;
+      border-radius: 6px;
+      border: 2px solid #ddd;
+      margin-bottom: 16px;
+    }
+
+    .mockup-title {
+      color: #333;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+
+    .mockup-preview {
+      position: relative;
+      width: 100%;
+      height: 250px;
+      background: white;
+      border: 2px dashed #ccc;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .mockup-preview.follow-mode {
+      background: linear-gradient(135deg, #e8f0fe 0%, #f0f8ff 100%);
+    }
+
+    .mockup-preview.fixed-mode {
+      background: linear-gradient(135deg, #f0f8ff 0%, #e8f0fe 100%);
+    }
+
+    .mockup-popup {
+      background: rgba(0, 0, 0, 0.95);
+      color: white;
+      padding: 8px;
+      border-radius: 6px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      width: 140px;
+      line-height: 1.25;
+      position: relative;
+    }
+
+    .mockup-popup-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+
+    .mockup-popup-info {
+      font-size: 11px;
+      font-weight: 200;
+      color: #ddd;
+      margin-bottom: 3px;
+    }
+
+    .follow-indicator {
+      position: absolute;
+      width: 2px;
+      height: 20px;
+      background: #667eea;
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .follow-indicator::before {
+      content: '→';
+      position: absolute;
+      color: #667eea;
+      font-weight: bold;
+      font-size: 14px;
+      left: -15px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .cursor-indicator {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      pointer-events: none;
+    }
+
+    .cursor-indicator svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .mockup-description {
+      font-size: 12px;
+      color: #666;
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      text-align: center;
+    }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <h1>Image Scout Settings</h1>
+    <h1 style="margin-bottom: 12px;">Image Scout Settings</h1>
+
+    <!-- Mockup Preview -->
+    <div class="mockup-section">
+      <div class="mockup-title">Preview</div>
+      <div class="mockup-preview follow-mode" id="mockupPreview">
+        <div class="cursor-indicator" id="cursorIndicator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+            <path d="M3 3l7.07 18.97 2.58-7.57 7.57-2.58L3 3z" />
+          </svg>
+        </div>
+        <div class="mockup-popup" id="mockupPopup" style="position: relative;">
+          <div class="mockup-popup-title" id="popupTitle">Image Scout</div>
+          <div id="mockupContent">
+            <div class="mockup-popup-info" id="urlInfo"><strong>URL:</strong> example.png</div>
+            <div class="mockup-popup-info" id="altInfo"><strong>Alt:</strong> Sample image</div>
+            <div class="mockup-popup-info" id="imageTitleInfo"><strong>Title:</strong> Example</div>
+            <div class="mockup-popup-info" id="typeInfo"><strong>Type:</strong> PNG</div>
+            <div class="mockup-popup-info" id="originalSizeInfo"><strong>Original:</strong> 800×400</div>
+            <div class="mockup-popup-info" id="renderSizeInfo"><strong>Render:</strong> 400×200</div>
+            <div class="mockup-popup-info" id="aspectRatioInfo"><strong>Aspect Ratio:</strong> 2</div>
+          </div>
+          <div class="follow-indicator" id="followIndicator" style="display: none;"></div>
+        </div>
+      </div>
+      <div class="mockup-description" id="mockupDescription">
+        Popup follows your mouse cursor as you hover over images
+      </div>
+    </div>
 
     <!-- Popup Position Section -->
     <div class="section">
@@ -229,73 +363,44 @@
       </div>
     </div>
 
+    <!-- Information to Display Section -->
     <div class="section">
       <h2>Information to Display</h2>
-      <div class="option-group">
-        <label>
-          <input type="radio" name="information" value="fixed" checked>
-          <div class="image-popup">
-            <div class="popup-header">
-              <span class="popup-title">Image Info</span>
-            </div>
-            <p class="popup-info">Title: profile</p>
-            <p class="popup-info">Alt text: user-profile</p>
-            <p class="popup-info">Render size: 128 x 128 px</p>
-            <p class="popup-info">Original size: 256 x 256 px</p>
-            <p class="popup-info">Aspect ratio: 1</p>
-          </div>
-        </label>
-      </div>
-      <div class="option-group">
-        <label>
-          <input type="radio" name="information" value="fixed">
-          <div>
-            <span class="label-text">Fixed Position (Draggable)</span>
-            <span class="label-description">Popup stays in one place and can be dragged</span>
-          </div>
-        </label>
-      </div>
-      <div class="option-group">
-        <label>
-          <input type="radio" name="information" value="fixed">
-          <div>
-            <span class="label-text">Fixed Position (Draggable)</span>
-            <span class="label-description">Popup stays in one place and can be dragged</span>
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <!-- Show Info Section -->
-    <div class="section" hidden>
-      <h2>Information to Display</h2>
       <p style="color: #666; margin-bottom: 15px; font-size: 13px;">
-        Choose which information categories to show in the popup:
+        Choose which information to show in the popup:
       </p>
       <div class="info-list">
         <label>
-          <input type="checkbox" name="showInfo" value="basic" checked>
-          <span class="label-text">Basic Info</span>
+          <input type="checkbox" name="showInfo" value="title" checked>
+          <span class="label-text">Popup Title</span>
         </label>
         <label>
-          <input type="checkbox" name="showInfo" value="dimensions" checked>
-          <span class="label-text">Dimensions</span>
+          <input type="checkbox" name="showInfo" value="url" checked>
+          <span class="label-text">URL</span>
         </label>
         <label>
-          <input type="checkbox" name="showInfo" value="metadata" checked>
-          <span class="label-text">Metadata</span>
+          <input type="checkbox" name="showInfo" value="alt" checked>
+          <span class="label-text">Alt</span>
         </label>
         <label>
-          <input type="checkbox" name="showInfo" value="position" checked>
-          <span class="label-text">Position</span>
+          <input type="checkbox" name="showInfo" value="imageTitle" checked>
+          <span class="label-text">Title</span>
         </label>
         <label>
-          <input type="checkbox" name="showInfo" value="file" checked>
-          <span class="label-text">File Info</span>
+          <input type="checkbox" name="showInfo" value="type" checked>
+          <span class="label-text">Type</span>
         </label>
         <label>
-          <input type="checkbox" name="showInfo" value="attributes" checked>
-          <span class="label-text">Attributes</span>
+          <input type="checkbox" name="showInfo" value="originalSize" checked>
+          <span class="label-text">Original Size</span>
+        </label>
+        <label>
+          <input type="checkbox" name="showInfo" value="renderSize" checked>
+          <span class="label-text">Render Size</span>
+        </label>
+        <label>
+          <input type="checkbox" name="showInfo" value="aspectRatio" checked>
+          <span class="label-text">Aspect Ratio</span>
         </label>
       </div>
     </div>

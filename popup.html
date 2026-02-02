@@ -1,27 +1,42 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Scout</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
-  <div class="container">
-    <div class="popup-header">
-      <div class="title-area">
-        <div class="title">Image Scout</h1>
-        <div class="subtitle"><p>Press <kbd>Ctrl</kbd> and move <kbd>Cursor</kbd> over image to see details.</p></div>
-      </div>
-      <div class="header-controls">
-        <div class="mode-group">
-          <label class="mode-radio"><input type="radio" name="mode" value="follow" id="modeFollow"> Follow</label>
-          <label class="mode-radio"><input type="radio" name="mode" value="fixed" id="modeFixed"> Fixed</label>
+  <div class="container" style="width: 100%;">
+    <div class="popup-header" style="width: 100%;">
+      <div class="title-area" style="width: 100%;">
+        <div class="title">
+          <div class="logo">i</div>
+          Image Scout
         </div>
-        <button id="optionsBtn">Options</button>
+        <div class="subtitle">
+          <p>Press <kbd>Ctrl</kbd> and move <kbd>Cursor</kbd> over image to see details.</p>
+        </div>
+        <div class="header-controls" style="width: 100%;">
+          <div style="display: flex; justify-content: space-between; width: 100%;">
+            <div class="mode-group">
+              <label class="mode-radio">
+                <input type="radio" name="mode" value="follow" id="modeFollow">
+                Follow
+              </label>
+              <label class="mode-radio">
+                <input type="radio" name="mode" value="fixed" id="modeFixed">
+                Fixed
+              </label>
+            </div>
+            <button id="optionsBtn">Options</button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-  <script src="popup.js"></script>
+    <script src="popup.js"></script>
 </body>
+
 </html>
